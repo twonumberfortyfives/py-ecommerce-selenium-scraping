@@ -50,7 +50,7 @@ def get_data_from_soup(soup: BeautifulSoup, url: str):
                 "title": product.find_element(By.CLASS_NAME, "title").get_attribute("title"),
                 "description": product.find_element(By.CLASS_NAME, "description").text,
                 "price": float(product.find_element(By.CLASS_NAME, "price").text.replace("$", "")),
-                "rating": int(len(product.find_elements(By.CLASS_NAME, "ws-icon"))),
+                "rating": len(product.find_elements(By.CLASS_NAME, "ws-icon")),
                 "num_of_reviews": int(product.find_element(By.CLASS_NAME, "review-count").text.strip().replace("reviews", "")),
             }
             for product in all_products
@@ -90,14 +90,23 @@ def save_as_csv_file(file_name: str, all_products_data: list[dict]) -> None:
         writer.writerows(all_products_data)
 
 
-def get_all_products() -> list[Product]:
-    url_computers_laptops = urljoin(BASE_URL, "test-sites/e-commerce/more/computers/tablets")
-    soup = get_soup(urljoin(BASE_URL, url_computers_laptops))
-    all_products_data = get_data_from_soup(soup, url=url_computers_laptops)
-    save_as_csv_file(file_name="home.csv", all_products_data=all_products_data)
-    products_objects = create_product_objects(all_products_data)
-    return products_objects
+def get_all_products() -> None:
+    list_of_urls = [
+        urljoin(BASE_URL, "test-sites/e-commerce/more"),
+        urljoin(BASE_URL, "test-sites/e-commerce/more/computers"),
+        urljoin(BASE_URL, "test-sites/e-commerce/more/computers/laptops"),
+        urljoin(BASE_URL, "test-sites/e-commerce/more/computers/tablets"),
+        urljoin(BASE_URL, "test-sites/e-commerce/more/phones"),
+        urljoin(BASE_URL, "test-sites/e-commerce/more/phones/touch")
+    ]
+    for url in list_of_urls:
+        full_url = urljoin(BASE_URL, url)
+        csv_file_name = "home.csv" if url.split("/")[-1] == "more" else url.split("/")[-1] + ".csv"
+        soup = get_soup(urljoin(BASE_URL, full_url))
+        all_products_data = get_data_from_soup(soup, url=full_url)
+        save_as_csv_file(file_name=csv_file_name, all_products_data=all_products_data)
+        create_product_objects(all_products_data)
 
 
 if __name__ == "__main__":
-    print(get_all_products())
+    get_all_products()
