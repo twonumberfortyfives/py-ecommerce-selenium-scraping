@@ -34,9 +34,11 @@ def get_data_from_soup(soup: BeautifulSoup, url: str):
         driver.get(url)
         actions = ActionChains(driver)
         try:
-            while True:
-                button = driver.find_element(By.CSS_SELECTOR,
-                                             "a.btn.btn-lg.btn-block.btn-primary.ecomerce-items-scroll-more")
+            button = driver.find_element(By.CSS_SELECTOR,
+                                         "a.btn.btn-lg.btn-block.btn-primary.ecomerce-items-scroll-more")
+            style = button.get_attribute("style")
+
+            while not style:
                 driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
                 actions.move_to_element(button).click().perform()
         except selenium.common.exceptions.NoSuchElementException:
@@ -100,10 +102,9 @@ def get_all_products() -> None:
         urljoin(BASE_URL, "test-sites/e-commerce/more/phones/touch")
     ]
     for url in list_of_urls:
-        full_url = urljoin(BASE_URL, url)
         csv_file_name = "home.csv" if url.split("/")[-1] == "more" else url.split("/")[-1] + ".csv"
-        soup = get_soup(urljoin(BASE_URL, full_url))
-        all_products_data = get_data_from_soup(soup, url=full_url)
+        soup = get_soup(url)
+        all_products_data = get_data_from_soup(soup, url=url)
         save_as_csv_file(file_name=csv_file_name, all_products_data=all_products_data)
         create_product_objects(all_products_data)
 
