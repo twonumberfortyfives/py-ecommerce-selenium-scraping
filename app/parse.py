@@ -1,6 +1,13 @@
+import csv
 from dataclasses import dataclass
 from urllib.parse import urljoin
 
+import selenium.common.exceptions
+from bs4 import BeautifulSoup
+import requests
+from selenium import webdriver
+from selenium.webdriver import ActionChains
+from selenium.webdriver.common.by import By
 
 BASE_URL = "https://webscraper.io/"
 HOME_URL = urljoin(BASE_URL, "test-sites/e-commerce/more/")
@@ -15,9 +22,82 @@ class Product:
     num_of_reviews: int
 
 
-def get_all_products() -> None:
-    pass
+def get_soup(url):
+    content = requests.get(url).content
+    soup = BeautifulSoup(content, "html.parser")
+    return soup
+
+
+def get_data_from_soup(soup: BeautifulSoup, url: str):
+    if soup.select_one(".btn"):
+        driver = webdriver.Chrome()
+        driver.get(url)
+        actions = ActionChains(driver)
+        try:
+            while True:
+                button = driver.find_element(By.CSS_SELECTOR,
+                                             "a.btn.btn-lg.btn-block.btn-primary.ecomerce-items-scroll-more")
+                driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+                actions.move_to_element(button).click().perform()
+        except selenium.common.exceptions.NoSuchElementException:
+            driver.close()
+        except selenium.common.exceptions.JavascriptException:
+            print("last_page")
+
+        all_products = driver.find_elements(By.CLASS_NAME, "card")
+        return [
+            {
+                "title": product.find_element(By.CLASS_NAME, "title").get_attribute("title"),
+                "description": product.find_element(By.CLASS_NAME, "description").text,
+                "price": float(product.find_element(By.CLASS_NAME, "price").text.replace("$", "")),
+                "rating": int(len(product.find_elements(By.CLASS_NAME, "ws-icon"))),
+                "num_of_reviews": int(product.find_element(By.CLASS_NAME, "review-count").text.strip().replace("reviews", "")),
+            }
+            for product in all_products
+        ]
+
+    all_products = soup.select(".card")
+    return [
+        {
+            "title": product.select_one("a.title")["title"],
+            "description": product.select_one(".description").text,
+            "price": float(product.select_one(".price").text.replace("$", "")),
+            "rating": int(product.select_one("p[data-rating]")["data-rating"]),
+            "num_of_reviews": int(product.select_one("p.review-count").text.strip().replace("reviews", "")),
+        }
+        for product in all_products
+    ]
+
+
+def create_product_objects(all_products_data: list[dict]) -> list[Product]:
+    return [
+        Product(
+            title=product["title"],
+            description=product["description"],
+            price=product["price"],
+            rating=product["rating"],
+            num_of_reviews=product["num_of_reviews"]
+        )
+        for product in all_products_data
+    ]
+
+
+def save_as_csv_file(file_name: str, all_products_data: list[dict]) -> None:
+    with open(file_name, "w", newline="") as file:
+        fieldnames = ["title", "description", "price", "rating", "num_of_reviews"]
+        writer = csv.DictWriter(file, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(all_products_data)
+
+
+def get_all_products() -> list[Product]:
+    url_computers_laptops = urljoin(BASE_URL, "test-sites/e-commerce/more/computers/tablets")
+    soup = get_soup(urljoin(BASE_URL, url_computers_laptops))
+    all_products_data = get_data_from_soup(soup, url=url_computers_laptops)
+    save_as_csv_file(file_name="home.csv", all_products_data=all_products_data)
+    products_objects = create_product_objects(all_products_data)
+    return products_objects
 
 
 if __name__ == "__main__":
-    get_all_products()
+    print(get_all_products())
